@@ -1,0 +1,9 @@
+.xmake/
+build/
+bin/
+obj/
+logs/
+lib/
+.DS_Store
+.vscode/
+testcases/
