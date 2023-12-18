@@ -53,7 +53,7 @@ Please run the `echo_server` first, and then you can run `echo_client`, it will 
 ./echo_bench -h
 ```
 
-Here is a result of the stress test:![](/home/huangchen/Project/zest/pics/stress_test.png)
+Here is a result of the stress test:![](./pics/stress_test.png)
 
 You might notice inconsistency between two pieces of data, which is because the client might terminate the test before receiving a response after sending data.
 
