@@ -38,8 +38,8 @@ void AsyncLogging::InitAsyncLogger(const std::string &file_name, const std::stri
     }
     g_logger->m_init_sem.wait();   // 等待 m_running 被设置为true
   }
-  else
-    throw std::runtime_error("Set global logger more than once");
+  // else
+  //   throw std::runtime_error("Set global logger more than once");
 }
 
 // 辅助调用后端线程函数

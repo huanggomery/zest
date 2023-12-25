@@ -122,8 +122,10 @@ class TcpConnection : public noncopyable
 
   void waitForMessage();              // 等待数据到达
   std::string data() const;           // 获取接收缓存中的数据
+  std::size_t dataSize() const;       // 接收缓存中数据量
   void send(const std::string &str);  // 发送数据
   void send(const char *str);
+  void send(const char *str, std::size_t len);
   void clearData();                // 清空接收缓存
   void clearBytesData(int bytes);  // 丢弃接收缓存中bytes个字节的数据
   void shutdown();                 // 半关闭

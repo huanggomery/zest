@@ -54,6 +54,11 @@ std::string TcpConnection::data() const
   return m_in_buffer->to_string();
 }
 
+std::size_t TcpConnection::dataSize() const
+{
+  return m_in_buffer->size();
+}
+
 void TcpConnection::send(const std::string &str)
 {
   if (m_eventloop->isThisThread()) {
@@ -74,6 +79,11 @@ void TcpConnection::send(const std::string &str)
 void TcpConnection::send(const char *str)
 {
   send(std::string(str));
+}
+
+void TcpConnection::send(const char *str, std::size_t len)
+{
+  send(std::string(str, len));
 }
 
 void TcpConnection::clearData()
@@ -197,6 +207,11 @@ void TcpConnection::handleWrite()
   if (is_error) {
     this->shutdown();
     LOG_ERROR << "TCP write error, shutdown connection";
+    return;
+  }
+
+  // 缓冲区没写完，遇到 EAGAIN 或 EWOULDBLOCK 错误，继续等待套接字可写
+  if (!m_out_buffer->empty()) {
     return;
   }
 
