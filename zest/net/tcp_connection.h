@@ -129,6 +129,7 @@ class TcpConnection : public noncopyable
   void clearData();                // 清空接收缓存
   void clearBytesData(int bytes);  // 丢弃接收缓存中bytes个字节的数据
   void shutdown();                 // 半关闭
+  void close();                    // 断开连接
 
   int socketfd() const {return m_sockfd;}
 
@@ -167,13 +168,6 @@ class TcpConnection : public noncopyable
  private:
   void handleRead();
   void handleWrite();
-
-  /* 断开连接
-   * Tips：
-   * 经过深思熟虑，还是决定不要向用户（包括zest其它组件以及zest网络库的用户）暴露这个接口
-   * 遵循RAII的原则，让用户管理 TcpConnection，而让 TcpConnection 管理连接
-   */
-  void close();
   
  private:
   int m_sockfd;

@@ -63,6 +63,8 @@ class EventLoop: public noncopyable
 
   bool isThisThread() const;   // 判断调用者是否是创建该对象的线程
 
+  void assertInLoopThread() const;
+
  private:
   EventLoop();
   void addTask(CallBackFunc cb, bool wake_up = false);

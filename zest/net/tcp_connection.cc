@@ -6,6 +6,7 @@
 #include "zest/net/tcp_connection.h"
 
 #include <arpa/inet.h>
+#include <assert.h>
 #include <string.h>
 #include <unistd.h>
 
@@ -29,11 +30,8 @@ TcpConnection::TcpConnection(int fd, EventLoopPtr eventloop, NetAddrPtr peer_add
 
 TcpConnection::~TcpConnection()
 {
-  if (m_state == Closed || m_state == NotConnected)
-    return;
-  deleteFromEventLoop();
-  this->close();
-  setState(Closed);
+  LOG_DEBUG << "TcpConnection::~TcpConnection() fd = " << m_sockfd;
+  assert(m_state == Closed || m_state == NotConnected);
 }
 
 void TcpConnection::waitForMessage()
@@ -117,24 +115,20 @@ void TcpConnection::shutdown()
 
 void TcpConnection::close()
 {
-  if (m_eventloop->isThisThread()) {
-    if (m_state == Connected || m_state == HalfClosing) {
-      // 把定时器全部取消
-      for (auto it = m_timer_map.begin(); it != m_timer_map.end();) {
-        it->second->set_valid(false);
-        it = m_timer_map.erase(it);
-      }
-      
-      ::close(m_sockfd);
-      if (m_close_callback)
-        m_close_callback(*this);
-      setState(Closed);
-      deleteFromEventLoop();
-    }
+  m_eventloop->assertInLoopThread();
+  assert(m_state == Connected || m_state == HalfClosing);
+
+  // 把定时器全部取消
+  for (auto it = m_timer_map.begin(); it != m_timer_map.end();) {
+    it->second->set_valid(false);
+    it = m_timer_map.erase(it);
   }
-  else {
-    m_eventloop->runInLoop(std::bind(&TcpConnection::close, this));
-  }
+  
+  setState(Closed);
+  if (m_close_callback)
+    m_close_callback(*this);
+  ::close(m_sockfd);
+  deleteFromEventLoop();
 }
 
 void TcpConnection::handleRead()

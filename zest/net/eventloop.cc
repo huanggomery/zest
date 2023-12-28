@@ -229,6 +229,14 @@ bool EventLoop::isThisThread() const
   return m_tid == t_tid;
 }
 
+void EventLoop::assertInLoopThread() const
+{
+  if (!isThisThread()) {
+    LOG_FATAL << "EventLoop was created in thead " << m_tid << ", current thead id = " << t_tid;
+    exit(-1);
+  }
+}
+
 void EventLoop::doPendingTask()
 {
   std::queue<CallBackFunc> pending_tasks;
