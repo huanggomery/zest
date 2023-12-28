@@ -57,6 +57,8 @@ class Logger: public noncopyable
   self& operator<<(unsigned long);
   self& operator<<(long long);
   self& operator<<(unsigned long long);
+  
+  self& operator<<(const void*);
 
   self& operator<<(float v);
   self& operator<<(double v);

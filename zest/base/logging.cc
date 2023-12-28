@@ -34,6 +34,7 @@ std::string loglevel2str[] = {
 
 const char digits[] = "9876543210123456789";
 const char *zero = digits + 9;
+const char digitsHex[] = "0123456789abcdef";
 
 // 辅助整型变量写入到字符串中
 template <typename Integer>
@@ -55,6 +56,27 @@ void formatInteger(zest::FixedBuffer<zest::SmallBufferSize> &buf, Integer value)
     *tmp++ = '-';
   *tmp = '\0';
   std::reverse(ibuf,tmp);
+  buf.append(ibuf, tmp-ibuf);
+}
+
+// 将整型变成16进制写入字符串
+template <typename Integer>
+void formatIntegerHex(zest::FixedBuffer<zest::SmallBufferSize> &buf, Integer value)
+{
+  if (buf.avail() < zest::MaxNumericSize)
+    return;
+  char ibuf[zest::MaxNumericSize];
+  char *tmp = ibuf;
+  Integer i = value;
+  do
+  {
+    int lsd = i % 16;
+    *tmp++ = digitsHex[lsd];
+    i /= 16;
+  } while (i != 0);
+
+  *tmp = '\0';
+  std::reverse(ibuf, tmp);
   buf.append(ibuf, tmp-ibuf);
 }
 
@@ -153,6 +175,14 @@ Logger &Logger::operator<<(long long v)
 Logger &Logger::operator<<(unsigned long long v)
 {
   formatInteger(m_buffer, v);
+  return *this;
+}
+
+Logger &Logger::operator<<(const void *p)
+{
+  uintptr_t v = reinterpret_cast<uintptr_t>(p);
+  m_buffer.append("0x", 2);
+  formatIntegerHex(m_buffer, v);
   return *this;
 }
 
