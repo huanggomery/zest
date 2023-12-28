@@ -231,10 +231,7 @@ bool EventLoop::isThisThread() const
 
 void EventLoop::assertInLoopThread() const
 {
-  if (!isThisThread()) {
-    LOG_FATAL << "EventLoop was created in thead " << m_tid << ", current thead id = " << t_tid;
-    exit(-1);
-  }
+  assert(m_tid == t_tid);
 }
 
 void EventLoop::doPendingTask()
