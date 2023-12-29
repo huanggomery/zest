@@ -52,7 +52,7 @@ private:
   TcpConnection::s_ptr m_connection {nullptr};
   std::atomic<bool> m_running {false};
 
-  // 各种事件的回调函数
+  // 连接成功的回调函数
   ConnectionCallbackFunc m_on_connection_callback {nullptr};
 };
   

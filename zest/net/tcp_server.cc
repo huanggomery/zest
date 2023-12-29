@@ -91,7 +91,7 @@ void TcpServer::handleAccept()
     auto connection = createConnection(sockfd, io_thread->get_eventloop(), peer_addr);
     if (connection) {
       m_connections[sockfd] = connection;
-      LOG_INFO << "Accept new connection, fd = " << sockfd << " address: " << peer_addr->to_string();
+      LOG_INFO << "Accept new connection, ptr = " << connection.get() << ", fd = " << sockfd << " address: " << peer_addr->to_string();
       // 如果设置了连接回调函数，则执行回调函数；否则等待读取数据
       if (m_on_connection_callback)
         m_on_connection_callback(*connection);

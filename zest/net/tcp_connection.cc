@@ -30,7 +30,7 @@ TcpConnection::TcpConnection(int fd, EventLoopPtr eventloop, NetAddrPtr peer_add
 
 TcpConnection::~TcpConnection()
 {
-  LOG_DEBUG << "TcpConnection::~TcpConnection() fd = " << m_sockfd;
+  LOG_DEBUG << "TcpConnection::~TcpConnection(), this = " << this << ", fd = " << m_sockfd;
   assert(m_state == Closed || m_state == NotConnected);
 }
 
@@ -123,12 +123,17 @@ void TcpConnection::close()
     it->second->set_valid(false);
     it = m_timer_map.erase(it);
   }
-  
   setState(Closed);
   if (m_close_callback)
     m_close_callback(*this);
-  ::close(m_sockfd);
   deleteFromEventLoop();
+
+  // ::close()必须放在最后
+  // 因为close后该fd可能会被其它线程重用
+  // 导致 TcpServer的ConnectionMap 中当前对象的智能指针被覆盖，当前对象被析构
+  // 所以必须保证::close()后不再使用当前对象的任何资源
+  LOG_DEBUG << "TcpConnection::close(), this = " << this << ", sockfd = " << m_sockfd;
+  ::close(m_sockfd);
 }
 
 void TcpConnection::handleRead()
@@ -163,13 +168,13 @@ void TcpConnection::handleRead()
 
   // 出错的情况，半关闭连接，然后等待对端关闭
   if (is_error) {
-    this->close();
     LOG_ERROR << "TCP read error, close connection: " << m_peer_addr->to_string() << " errno = " << errno;
+    this->close();
     return;
   }
   if (is_closed) {
-    this->close();
     LOG_DEBUG << "receive FIN from peer: " << m_peer_addr->to_string();
+    this->close();
     return;
   }
 
