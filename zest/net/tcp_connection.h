@@ -29,6 +29,7 @@ class FdEvent;
 class TcpBuffer;
 class TcpConnection;
 class TimerEvent;
+template <typename T> class TimerContainer;
 
 enum TcpState {
   NotConnected = 1,
@@ -163,6 +164,8 @@ class TcpConnection : public noncopyable
 
   void cancelTimer(const std::string &timer_name);
 
+  void clearTimer();
+
   void deleteFromEventLoop();
   
  private:
@@ -179,7 +182,7 @@ class TcpConnection : public noncopyable
   TcpState m_state;
   FdEventPtr m_fd_event;
   Context m_context;
-  std::unordered_map<std::string, TimerPtr> m_timer_map;
+  TimerContainer<std::string> *m_timer_container;
 
   ConnectionCallbackFunc m_message_callback {nullptr};
   ConnectionCallbackFunc m_write_complete_callback {nullptr};

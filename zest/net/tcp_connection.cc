@@ -14,6 +14,7 @@
 #include "zest/net/eventloop.h"
 #include "zest/net/fd_event.h"
 #include "zest/net/tcp_buffer.h"
+#include "zest/net/timer_container.h"
 #include "zest/net/timer_event.h"
 
 using namespace zest;
@@ -23,7 +24,8 @@ using namespace zest::net;
 TcpConnection::TcpConnection(int fd, EventLoopPtr eventloop, NetAddrPtr peer_addr) :
   m_sockfd(fd), m_eventloop(eventloop), m_peer_addr(peer_addr), 
   m_in_buffer(new TcpBuffer()), m_out_buffer(new TcpBuffer()),
-  m_state(Connected), m_fd_event(new FdEvent(m_sockfd))
+  m_state(Connected), m_fd_event(new FdEvent(m_sockfd)),
+  m_timer_container(new TimerContainer<std::string>(eventloop))
 {
   m_fd_event->set_non_blocking();
 }
@@ -32,6 +34,7 @@ TcpConnection::~TcpConnection()
 {
   LOG_DEBUG << "TcpConnection::~TcpConnection(), this = " << this << ", fd = " << m_sockfd;
   assert(m_state == Closed || m_state == NotConnected);
+  delete m_timer_container;
 }
 
 void TcpConnection::waitForMessage()
@@ -119,10 +122,8 @@ void TcpConnection::close()
   assert(m_state == Connected || m_state == HalfClosing);
 
   // 把定时器全部取消
-  for (auto it = m_timer_map.begin(); it != m_timer_map.end();) {
-    it->second->set_valid(false);
-    it = m_timer_map.erase(it);
-  }
+  clearTimer();
+  
   setState(Closed);
   if (m_close_callback)
     m_close_callback(*this);
@@ -222,79 +223,32 @@ void TcpConnection::handleWrite()
 void TcpConnection::addTimer(const std::string &timer_name, uint64_t interval,
                              ConnectionCallbackFunc cb, bool periodic /*=false*/)
 {
-  if (m_eventloop->isThisThread()) {
-    if (m_timer_map.find(timer_name) != m_timer_map.end())
-      return;
-    std::shared_ptr<TimerEvent> timer_event = std::make_shared<TimerEvent>(
-      interval, 
-      [this, cb, timer_name](){
-        cb(*this);
-        // 如果定时器不是周期性的，在触发后，需要在TcpConnection中删除，避免内存泄漏
-        if (this->m_timer_map[timer_name]->is_periodic() == false) {
-          this->m_timer_map.erase(timer_name);
-        }
-      },
-      periodic);
-    m_timer_map.insert({timer_name, timer_event});
-    m_eventloop->addTimerEvent(timer_event);
-  }
-  else {
-    m_eventloop->runInLoop(std::bind(&TcpConnection::addTimer, this, timer_name, interval, cb, periodic));
-  }
+  m_timer_container->addTimer(
+    timer_name,
+    interval,
+    [this, cb](){cb(*this);},
+    periodic
+  );
 }
 
 void TcpConnection::resetTimer(const std::string &timer_name)
 {
-  if (m_eventloop->isThisThread()) {
-    auto old_timer = m_timer_map.find(timer_name);
-    if (old_timer == m_timer_map.end())
-      return;
-    old_timer->second->set_valid(false);  // 将原先的定时器取消
-
-    // 创建新的定时器
-    auto new_timer = std::make_shared<TimerEvent>(*(old_timer->second));
-    m_timer_map[timer_name] = new_timer;
-    m_eventloop->addTimerEvent(new_timer);
-  }
-  else {
-    auto cb = [this, timer_name]() {this->resetTimer(timer_name);};
-    m_eventloop->runInLoop(cb);
-  }
+  m_timer_container->resetTimer(timer_name);
 }
 
 void TcpConnection::resetTimer(const std::string &timer_name, uint64_t interval)
 {
-  if (m_eventloop->isThisThread()) {
-    auto old_timer = m_timer_map.find(timer_name);
-    if (old_timer == m_timer_map.end())
-      return;
-    old_timer->second->set_valid(false);  // 将原先的定时器取消
-
-    // 创建新的定时器
-    auto new_timer = std::make_shared<TimerEvent>(
-      interval, old_timer->second->handler(), old_timer->second->is_periodic()
-    );
-    m_timer_map[timer_name] = new_timer;
-    m_eventloop->addTimerEvent(new_timer);
-  }
-  else {
-    auto cb = [this, timer_name, interval]() {this->resetTimer(timer_name, interval);};
-    m_eventloop->runInLoop(cb);
-  }
+  m_timer_container->resetTimer(timer_name, interval);
 }
 
 void TcpConnection::cancelTimer(const std::string &timer_name)
 {
-  if (m_eventloop->isThisThread()) {
-    auto timer = m_timer_map.find(timer_name);
-    if (timer == m_timer_map.end())
-      return;
-    timer->second->set_valid(false);
-  }
-  else {
-    auto cb = [this, timer_name]() {this->cancelTimer(timer_name);};
-    m_eventloop->runInLoop(cb);
-  }
+  m_timer_container->cancelTimer(timer_name);
+}
+
+void TcpConnection::clearTimer()
+{
+  m_timer_container->clearTimer();
 }
 
 void TcpConnection::deleteFromEventLoop()

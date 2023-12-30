@@ -61,9 +61,10 @@ std::pair<int,int> echoTest()
   std::pair<int,int> count{0, 0};  // 发送消息次数和服务器正确响应次数
   zest::net::TcpClient client(*server_address);
   client.addTimer(
+    "test_time",
     seconds * 1000,
     [&client](){
-      client.stop();
+      client.connection().close();
     }
   );
 
@@ -94,6 +95,11 @@ std::pair<int,int> echoTest()
     [&count](zest::net::TcpConnection &conn) {
       ++count.first;
       conn.waitForMessage();
+    }
+  );
+  client.connection().setCloseCallback(
+    [&client](zest::net::TcpConnection &conn) {
+      client.stop();
     }
   );
   client.start();

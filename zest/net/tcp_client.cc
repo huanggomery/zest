@@ -4,6 +4,7 @@
 #include "zest/net/tcp_client.h"
 
 #include <arpa/inet.h>
+#include <assert.h>
 #include <errno.h>
 #include <iostream>
 #include <string.h>
@@ -13,13 +14,15 @@
 #include "zest/base/logging.h"
 #include "zest/net/eventloop.h"
 #include "zest/net/fd_event.h"
+#include "zest/net/timer_container.h"
 #include "zest/net/timer_event.h"
 
 using namespace zest;
 using namespace zest::net;
 
-TcpClient::TcpClient(NetBaseAddress &peer_addr)
-  : m_peer_address(peer_addr.copy()), m_eventloop(EventLoop::CreateEventLoop())
+TcpClient::TcpClient(NetBaseAddress &peer_addr):
+  m_peer_address(peer_addr.copy()), m_eventloop(EventLoop::CreateEventLoop()),
+  m_timer_container(new TimerContainer<std::string>(m_eventloop))
 {
   int clientfd = socket(peer_addr.family(), SOCK_STREAM, 0);
   if (clientfd == -1) {
@@ -46,7 +49,9 @@ void TcpClient::stop()
   LOG_DEBUG << "TcpClient::stop()";
   if (m_eventloop->isThisThread()) {
     if (m_running) {
-      // m_connection->close();
+      assert(m_connection->getState() == Closed || 
+             m_connection->getState() == NotConnected);
+      clearTimer();
       m_eventloop->stop();
       m_running = false;
     }
@@ -56,20 +61,30 @@ void TcpClient::stop()
   }
 }
 
-void TcpClient::addTimer(uint64_t interval, std::function<void()> cb, bool periodic /*=false*/)
+void TcpClient::addTimer(const std::string &timer_name, uint64_t interval, 
+                         std::function<void()> cb, bool periodic /*=false*/)
 {
-  if (m_eventloop->isThisThread()) {
-    TimerEvent::s_ptr timer = 
-      std::make_shared<TimerEvent>(interval, cb, periodic);
-    m_eventloop->addTimerEvent(timer);
-  }
-  else {
-    m_eventloop->runInLoop(
-      [interval, cb, periodic, this](){
-        this->addTimer(interval, cb, periodic);
-      }
-    );
-  }
+  m_timer_container->addTimer(timer_name, interval, cb, periodic);
+}
+
+void TcpClient::resetTimer(const std::string &timer_name)
+{
+  m_timer_container->resetTimer(timer_name);
+}
+
+void TcpClient::resetTimer(const std::string &timer_name, uint64_t interval)
+{
+  m_timer_container->resetTimer(timer_name, interval);
+}
+
+void TcpClient::cancelTimer(const std::string &timer_name)
+{
+  m_timer_container->cancelTimer(timer_name);
+}
+
+void TcpClient::clearTimer()
+{
+  m_timer_container->clearTimer();
 }
 
 void TcpClient::connect()

@@ -44,11 +44,19 @@ int main()
     }
   );
 
-  // 客户端运行20s后关闭
+  // 断开连接后关闭客户端
+  echo_client.connection().setCloseCallback(
+    [&echo_client](zest::net::TcpConnection &conn) {
+      echo_client.stop();
+    }
+  );
+
+  // 客户端运行20s后断开连接
   echo_client.addTimer(
+    "echo_client_countdown",
     20000,
     [&echo_client]() {
-      echo_client.stop();
+      echo_client.connection().close();
     }
   );
 
