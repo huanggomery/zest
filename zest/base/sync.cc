@@ -24,22 +24,26 @@ ScopeMutex::ScopeMutex(Mutex &mutex): m_mutex(mutex), m_is_locked(false)
 
 ScopeMutex::~ScopeMutex()
 {
-  m_mutex.unlock();
-  m_is_locked = false;
+  if (m_is_locked) {
+    m_is_locked = false;
+    m_mutex.unlock();
+  }
 }
 
 void ScopeMutex::lock()
 {
-  if (!m_is_locked)
+  if (!m_is_locked) {
     m_mutex.lock();
-  m_is_locked = true;
+    m_is_locked = true;
+  }
 }
 
 void ScopeMutex::unlock()
 {
-  if (m_is_locked)
+  if (m_is_locked) {
+    m_is_locked = false;
     m_mutex.unlock();
-  m_is_locked = false;
+  }
 }
 
 
