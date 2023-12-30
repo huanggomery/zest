@@ -139,6 +139,8 @@ void TcpConnection::close()
 
 void TcpConnection::handleRead()
 {
+  if (m_state != Connected && m_state != HalfClosing)
+    return;
   bool is_error = false, is_closed = false, is_finished = false;
   char tmp_buf[1024];
 
@@ -186,6 +188,8 @@ void TcpConnection::handleRead()
 
 void TcpConnection::handleWrite()
 {
+  if (m_state != Connected)
+    return;
   bool is_error = false;
 
   while (!m_out_buffer->empty()) {
@@ -226,7 +230,11 @@ void TcpConnection::addTimer(const std::string &timer_name, uint64_t interval,
   m_timer_container->addTimer(
     timer_name,
     interval,
-    [this, cb](){cb(*this);},
+    [this, cb](){
+      if (this->m_state == Closed || this->m_state == NotConnected)
+        return;
+      cb(*this);
+    },
     periodic
   );
 }
