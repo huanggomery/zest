@@ -4,6 +4,7 @@ bin/
 obj/
 logs/
 lib/
+test/
 .DS_Store
 .vscode/
 testcases/

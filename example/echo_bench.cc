@@ -56,54 +56,25 @@ For example: ./echo_bench -t 60 -c 10 -s 127.0.0.1:12345\n \
   std::cout << help_msg;
 }
 
-std::pair<int,int> echoTest()
+std::vector<int> echoTest()
 {
-  std::pair<int,int> count{0, 0};  // 发送消息次数和服务器正确响应次数
+  std::vector<int> count(3, 0);  // 发送消息次数、收到消息次数、服务器正确响应次数
   zest::net::TcpClient client(*server_address);
-  client.addTimer(
-    "test_time",
-    seconds * 1000,
-    [&client](){
-      client.connection().close();
-    }
-  );
+  client.setTimer(seconds * 1000);
+  client.connect();
 
-  std::string msg = generateRandomString(1, 50);
-  client.setOnConnectionCallback(
-    [msg, &count](zest::net::TcpConnection &conn){
-      conn.Put<std::string>("msg_send", msg);
-      conn.send(msg);
-    }
-  );
-  client.connection().setMessageCallback(
-    [&count](zest::net::TcpConnection &conn) {
-      std::string *msg_send = conn.Get<std::string>("msg_send");
-      std::string msg_recv = conn.data();
-      conn.clearData();
-      if (msg_recv == *msg_send)
-        ++count.second;
-      else {
-        std::cout << count.first << std::endl;
-        std::cout << "send: " << *msg_send << std::endl;
-        std::cout << "recv: " << msg_recv << std::endl;
-      }
-      *msg_send = generateRandomString(1, 50);
-      conn.send(*msg_send);
-    }
-  );
-  client.connection().setWriteCompleteCallback(
-    [&count](zest::net::TcpConnection &conn) {
-      ++count.first;
-      conn.waitForMessage();
-    }
-  );
-  client.connection().setCloseCallback(
-    [&client](zest::net::TcpConnection &conn) {
-      client.stop();
-    }
-  );
-  client.start();
-  return count;
+  while (1) {
+    std::string msg = generateRandomString(1, 50);
+    if (client.send(msg) == false)
+      return count;
+    ++count[0];
+    std::string recv_msg;
+    if (client.recv(recv_msg) == false)
+      return count;
+    ++count[1];
+    if (msg == recv_msg)
+      ++count[2];
+  }
 }
 
 int main(int argc, char *argv[])
@@ -162,8 +133,8 @@ int main(int argc, char *argv[])
       }
       auto res = echoTest();
       ssize_t len;
-      len = write(pipefd[2*i+1], &res.first, sizeof(int));
-      len = write(pipefd[2*i+1], &res.second, sizeof(int));
+      len = write(pipefd[2*i+1], &res[0], sizeof(int));
+      len = write(pipefd[2*i+1], &res[2], sizeof(int));
       close(pipefd[2*i+1]);
       exit(0);
     }

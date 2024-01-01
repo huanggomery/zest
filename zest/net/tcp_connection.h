@@ -42,6 +42,7 @@ enum TcpState {
 
 class TcpConnection : public noncopyable
 {
+  friend class TcpClient;
  private:
   using ConnectionCallbackFunc = std::function<void(TcpConnection&)>;
   using EventLoopPtr = std::shared_ptr<EventLoop>;
@@ -169,8 +170,8 @@ class TcpConnection : public noncopyable
   void deleteFromEventLoop();
   
  private:
-  void handleRead();
-  void handleWrite();
+  void handleRead(bool client = false);
+  void handleWrite(bool client = false);
   
  private:
   int m_sockfd;

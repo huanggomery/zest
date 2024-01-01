@@ -42,7 +42,7 @@ void TcpConnection::waitForMessage()
   if (m_eventloop->isThisThread()) {
     if (m_state != Connected)
       return;
-    m_fd_event->listen(EPOLLIN | EPOLLET, std::bind(&TcpConnection::handleRead, this));
+    m_fd_event->listen(EPOLLIN | EPOLLET, std::bind(&TcpConnection::handleRead, this, false));
     m_eventloop->addEpollEvent(m_fd_event);
   }
   else {
@@ -69,7 +69,7 @@ void TcpConnection::send(const std::string &str)
     TcpBuffer tmp_buf(str);
     swap(*m_out_buffer, tmp_buf);
 
-    m_fd_event->listen(EPOLLOUT | EPOLLET, std::bind(&TcpConnection::handleWrite, this));
+    m_fd_event->listen(EPOLLOUT | EPOLLET, std::bind(&TcpConnection::handleWrite, this, false));
     m_eventloop->addEpollEvent(m_fd_event);
   }
   else {
@@ -137,7 +137,7 @@ void TcpConnection::close()
   ::close(m_sockfd);
 }
 
-void TcpConnection::handleRead()
+void TcpConnection::handleRead(bool client)
 {
   if (m_state != Connected && m_state != HalfClosing)
     return;
@@ -172,21 +172,32 @@ void TcpConnection::handleRead()
   // 出错的情况，半关闭连接，然后等待对端关闭
   if (is_error) {
     LOG_ERROR << "TCP read error, close connection: " << m_peer_addr->to_string() << " errno = " << errno;
-    this->close();
+    if (!client)
+      this->shutdown();
+    else {
+      if (m_state == Connected) {
+        ::shutdown(m_sockfd, SHUT_WR);
+        setState(HalfClosing);
+      }
+    }
     return;
   }
   if (is_closed) {
     LOG_DEBUG << "receive FIN from peer: " << m_peer_addr->to_string();
     this->close();
+    if (client)
+      m_eventloop->stop();
     return;
   }
 
   // LOG_DEBUG << "receive " << recv_len << " bytes data from " << m_peer_addr->to_string();
   if (m_message_callback)
     m_message_callback(*this);
+  if (client)
+    m_eventloop->stop();
 }
 
-void TcpConnection::handleWrite()
+void TcpConnection::handleWrite(bool client)
 {
   if (m_state != Connected)
     return;
@@ -209,8 +220,17 @@ void TcpConnection::handleWrite()
   }
 
   if (is_error) {
-    this->shutdown();
     LOG_ERROR << "TCP write error, shutdown connection";
+    if (!client)
+      this->shutdown();
+    else {
+      if (m_state == Connected) {
+        ::shutdown(m_sockfd, SHUT_WR);
+        setState(HalfClosing);
+        m_fd_event->listen(EPOLLIN | EPOLLET, std::bind(&TcpConnection::handleRead, this, true));
+        m_eventloop->addEpollEvent(m_fd_event);
+      }
+    }
     return;
   }
 
@@ -222,6 +242,8 @@ void TcpConnection::handleWrite()
   // LOG_DEBUG << "send data to " << m_peer_addr->to_string();
   if (m_write_complete_callback)
     m_write_complete_callback(*this);
+  if (client)
+    m_eventloop->stop();
 }
 
 void TcpConnection::addTimer(const std::string &timer_name, uint64_t interval,

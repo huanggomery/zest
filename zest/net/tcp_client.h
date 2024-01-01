@@ -20,7 +20,6 @@ namespace net
 {
 
 class EventLoop;
-template <typename T> class TimerContainer;
 
 // FIXME: may be unsafe
 class TcpClient: public noncopyable
@@ -29,43 +28,34 @@ class TcpClient: public noncopyable
 
  public:
   TcpClient(NetBaseAddress &peer_addr);
-  
-  ~TcpClient()
-  { delete m_timer_container; }
 
-  TcpConnection& connection()
-  { return *m_connection; }
+  ~TcpClient();
 
-  void start();
+  bool connect();
 
-  void stop();
+  void disconnect();
 
-  void addTimer(const std::string &timer_name, uint64_t interval, 
-                std::function<void()> cb, bool periodic = false);
+  bool recv(std::string &buf);
 
-  void resetTimer(const std::string &timer_name);
+  bool send(const std::string &str);  // 发送数据
+  bool send(const char *str);
+  bool send(const char *str, std::size_t len);
 
-  void resetTimer(const std::string &timer_name, uint64_t interval);
+  void setTimer(uint64_t interval);
 
-  void cancelTimer(const std::string &timer_name);
+  void resetTimer();
 
-  void clearTimer();
+  void resetTimer(uint64_t interval);
 
-  void setOnConnectionCallback(const ConnectionCallbackFunc &cb)
-  { m_on_connection_callback = cb; }
+  void cancelTimer();
 
-private:
-  void connect();
+ private:
+  void waitConnecting();
 
  private:
   NetBaseAddress::s_ptr m_peer_address;
   std::shared_ptr<EventLoop> m_eventloop;
   TcpConnection::s_ptr m_connection {nullptr};
-  std::atomic<bool> m_running {false};
-  TimerContainer<std::string> *m_timer_container;
-
-  // 连接成功的回调函数
-  ConnectionCallbackFunc m_on_connection_callback {nullptr};
 };
   
 } // namespace net
