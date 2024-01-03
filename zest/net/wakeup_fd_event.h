@@ -22,7 +22,7 @@ class WakeUpFdEvent: public FdEvent
   WakeUpFdEvent() = delete;
   ~WakeUpFdEvent() = default;
 
-  WakeUpFdEvent(int fd): FdEvent(fd), m_triggered(false)
+  WakeUpFdEvent(int fd): FdEvent(fd)
   {
     // wakeup_event 的回调函数就是读取fd中的8字节数据
     listen(
@@ -30,7 +30,6 @@ class WakeUpFdEvent: public FdEvent
       [fd, this]() {
         char buf[8];
         while (read(fd, buf, 8) > 0) {/* do nothing */}
-        this->m_triggered = false;
       }
     );
   }
@@ -38,9 +37,6 @@ class WakeUpFdEvent: public FdEvent
   // 向fd中写入一个字节，用于从epoll_wait中返回
   void wakeup()
   {
-    if (m_triggered)
-      return;
-    
     char buf[8] = {'a'};
     int rt = write(m_fd, buf, 8);
     if (rt != 8) {
@@ -48,13 +44,8 @@ class WakeUpFdEvent: public FdEvent
     }
     else {
       // LOG_DEBUG << "Write to wakeup fd " << m_fd << " succeed";
-      m_triggered = true;
     }
   }
-
- private:
-  // 记录是否以触发唤醒，避免 wakeup() 多次调用时缓冲区数据过多
-  std::atomic<bool> m_triggered;
 };
 
 } // namespace net
