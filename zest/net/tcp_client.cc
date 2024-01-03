@@ -84,6 +84,8 @@ bool TcpClient::connect()
 
 void TcpClient::disconnect()
 {
+  m_eventloop->assertInLoopThread();
+
   if (m_connection->getState() == Connected || m_connection->getState() == HalfClosing)
     m_connection->close();
 }

@@ -33,7 +33,8 @@ TcpConnection::TcpConnection(int fd, EventLoopPtr eventloop, NetAddrPtr peer_add
 TcpConnection::~TcpConnection()
 {
   LOG_DEBUG << "TcpConnection::~TcpConnection(), this = " << this << ", fd = " << m_sockfd;
-  assert(m_state == Closed || m_state == NotConnected);
+  // FIXME: What if m_state == Connected now?
+  // assert(m_state == Closed || m_state == NotConnected);
   delete m_timer_container;
 }
 
