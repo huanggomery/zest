@@ -41,7 +41,7 @@ TcpConnection::~TcpConnection()
 void TcpConnection::waitForMessage()
 {
   if (m_eventloop->isThisThread()) {
-    if (m_state != Connected)
+    if (m_state != Connected && m_state != HalfClosing)
       return;
     m_fd_event->listen(EPOLLIN | EPOLLET, std::bind(&TcpConnection::handleRead, this, false));
     m_eventloop->addEpollEvent(m_fd_event);
@@ -143,7 +143,7 @@ void TcpConnection::handleRead(bool client)
   if (m_state != Connected && m_state != HalfClosing)
     return;
   bool is_error = false, is_closed = false, is_finished = false;
-  char tmp_buf[1024];
+  char tmp_buf[1500];
 
   if (m_state == HalfClosing)
     is_closed = true;
@@ -167,6 +167,8 @@ void TcpConnection::handleRead(bool client)
     else {
       m_in_buffer->append(tmp_buf, len);
       recv_len += len;
+      if (len < sizeof(tmp_buf))
+        is_finished = true;
     }
   }
 
