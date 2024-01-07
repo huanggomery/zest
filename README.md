@@ -1,10 +1,14 @@
-## Introduction
+## 介绍
 
-Zest is a simple network library using C++ language, based on the reactor pattern.
+Zest是一个轻量的网络库，基于主从Reactor模式，使用C++编写。
 
 https://github.com/huanggomery/zest
 
-## Environment
+网络库架构图：
+
+<img src="./pics/zest.png" style="zoom: 67%;" />
+
+## 环境
 
 + Linux kernel version 5.15.0-83-generic
 
@@ -12,67 +16,69 @@ https://github.com/huanggomery/zest
 
 + xmake 
 
-If you haven't installed xmake yet, please see https://xmake.io for more information.
+xmake是一个跨平台自动构建工具，如果你还没有安装xmake，请访问 https://xmake.io 查看如何下载安装。
 
-## Build
+## 构建
 
-First, clone the code repository and enter the directory.
+首先，clone本项目，并进入目录
 
 ```bash
 git clone https://github.com/huanggomery/zest.git
 cd zest
 ```
 
-Then, run
+然后运行
 
 ```bash
 ./build.sh
 ```
 
-Alternatively, you can specify the installation path (default /usr/local/)
+你也可以自己指定安装路径（默认是安装到 `/usr/local`）
 
 ```bash
 ./build.sh /your/specify/path/
 ```
 
-## Example
+## 示例
 
-In the `example` directory, you can find several C++ files that demonstrate how to use the zest network library to create an echo  server and echo client. Additionally, there's a stress testing tool available.
+在 `example` 目录中，你可以看到几个C++文件，演示了如何用zest网络库去创建一个回声服务器和客户端。另外，还提供了一个压力测试工具，测试回声服务器。
 
-After successfully running `./build.sh`, you can find the following three executable files in the `bin` directory:
+运行了 `./build.sh` 之后，你可以在 `bin` 目录中发现下面三个可执行文件：
 
 + `echo_server`
 + `echo_client`
 + `echo_bench`
 
-Please run the `echo_server` first, and then you can run `echo_client`, it will send data to the `echo_server` every second and then print the received data.
+首先运行 `echo_server`，然后运行`echo_client`，它会每隔一秒向服务器发送数据，然后打印收到的数据。
 
-`echo_bench` is a stress testing tool.  To get its usage, you can run:
+`echo_bench` 是一个压力测试工具。你可以使用 `-h` 选项来获取它的使用方法：
 
 ```bash
 ./echo_bench -h
 ```
 
-Here is a result of the stress test:![](./pics/stress_test.png)
+这是一个压力测试结果：
 
-You might notice inconsistency between two pieces of data, which is because the client might terminate the test before receiving a response after sending data.
+![](./pics/stress_test.png)
 
-## Tutorial
+你也许注意到了两个数据不一致，那是因为部分客户端在发送数据后，还没来得及收到数据，定时器就到期了。
 
-First of all, if you want to use the logging system, you should call `zest::Logger::InitGlobalLogger()` function to complete the initialization. For example:
+## 使用教程
+
+首先，如果你想使用日志系统，就需要调用 `zest::Logger::InitGlobalLogger()` 来完成初始化，例如：
 
 ```c++
 #include "zest/base/logging.h"
 zest::Logger::InitGlobalLogger("DEBUG", "echo_server", "../logs/");
 ```
 
-You need to bind a listening address for your server, such as creating an IPv4 address:
+你需要为你的服务器对象绑定一个监听地址，例如创建一个IPv4地址：
 
 ```c++
 zest::net::InetAddress local_addr("127.0.0.1", 12345);
 ```
 
-zest::net::InetAddress supports multiple constructors:
+`zest::net::InetAddress` 支持多种构造函数：
 
 ```c++
 InetAddress(const std::string &addr_str);
@@ -83,13 +89,13 @@ InetAddress(sockaddr_in addr);
 InetAddress(in_addr_t ip, uint16_t port);
 ```
 
-Then, you can create a TcpServer, requiring the address and the number of threads as parameters:
+然后，你就可以创建一个 `TcpServer`，需要地址和线程数作为参数：
 
 ```c++
 zest::net::TcpServer server(local_addr, 4);
 ```
 
-Use the following interface functions to bind callback functions for different events. The callback function should have the form
+使用下面的接口，来为不同的事件（连接、可读、可写、断开）绑定回调函数。回调函数必须是这种类型的：
 
 `void yourCallback(zest::net::TcpConnection &conn)`
 
@@ -101,30 +107,33 @@ void setWriteCompleteCallback(const ConnectionCallbackFunc &cb);
 void setCloseCallback(const ConnectionCallbackFunc &cb);
 ```
 
-In the callback functions, you can use the interfaces provided by `zest::net::TcpConnection`
+在回调函数中，你可以使用 `zest::net::TcpConnection` 提供的各种接口：
 
-|         Interface          |                      Parameter                      |           Ouput           |               Comment               |
-| :------------------------: | :-------------------------------------------------: | :-----------------------: | :---------------------------------: |
-|      `waitForMessage`      |                          -                          |             -             |                                     |
-|           `data`           |                          -                          |        std::string        |    string data in receive buffer    |
-|           `send`           |                std::string / char *                 |             -             |      send data to peer address      |
-|        `clearData`         |                          -                          |             -             |      clear the receive buffer       |
-|      `clearBytesData`      |                         int                         |             -             | clear n bytes in the receive buffer |
-|         `shutdown`         |                          -                          |             -             |      half close the connection      |
-|         `socketfd`         |                          -                          |            int            |     get socket file descriptor      |
-|       `peerAddress`        |                          -                          | zest::net::NetBaseAddress |          get peer address           |
-|         `setState`         |                 zest::net::TcpState                 |             -             |                                     |
-|         `getState`         |                          -                          |    zest::net::TcpState    |                                     |
-|    `setMessageCallback`    |   std::function\<void(zest::net::TcpConnection&)>   |             -             |                                     |
-| `setWriteCompleteCallback` |   std::function\<void(zest::net::TcpConnection&)>   |             -             |                                     |
-|     `setCloseCallback`     |   std::function\<void(zest::net::TcpConnection&)>   |             -             |                                     |
-|         `addTimer`         | std::string, uint64_t, std::function\<void()>, bool |             -             |     add timer to the connection     |
-|        `resetTimer`        |                     std::string                     |             -             |                                     |
-|        `resetTimer`        |                std::string, uint64_t                |             -             |   reset timer using new interval    |
-|       `cancelTimer`        |                     std::string                     |             -             |                                     |
-|   `deleteFromEventLoop`    |                          -                          |             -             |                                     |
+|            接口            |                        参数                         |           输出            |             备注             |
+| :------------------------: | :-------------------------------------------------: | :-----------------------: | :--------------------------: |
+|      `waitForMessage`      |                          -                          |             -             |                              |
+|           `data`           |                          -                          |        std::string        |     获取接收缓存中的数据     |
+|         `dataSize`         |                          -                          |        std::size_t        |      接收缓存中的数据量      |
+|           `send`           |              std::string / char * str               |             -             |           发送数据           |
+|           `send`           |          const char *str, std::size_t len           |             -             | 发送str指向的前len个字节数据 |
+|        `clearData`         |                          -                          |             -             |         清除接收缓存         |
+|      `clearBytesData`      |                         int                         |             -             |  清除接收缓存中n字节的数据   |
+|         `shutdown`         |                          -                          |             -             |        半关闭TCP连接         |
+|          `close`           |                          -                          |             -             |         断开TCP连接          |
+|         `socketfd`         |                          -                          |            int            |          获取套接字          |
+|       `peerAddress`        |                          -                          | zest::net::NetBaseAddress |         获取对端地址         |
+|         `setState`         |                 zest::net::TcpState                 |             -             |                              |
+|         `getState`         |                          -                          |    zest::net::TcpState    |                              |
+|    `setMessageCallback`    |   std::function\<void(zest::net::TcpConnection&)>   |             -             |                              |
+| `setWriteCompleteCallback` |   std::function\<void(zest::net::TcpConnection&)>   |             -             |                              |
+|     `setCloseCallback`     |   std::function\<void(zest::net::TcpConnection&)>   |             -             |                              |
+|         `addTimer`         | std::string, uint64_t, std::function\<void()>, bool |             -             |      为连接添加定时事件      |
+|        `resetTimer`        |                     std::string                     |             -             |                              |
+|        `resetTimer`        |                std::string, uint64_t                |             -             | 使用新的时间间隔来重置定时器 |
+|       `cancelTimer`        |                     std::string                     |             -             |                              |
+|   `deleteFromEventLoop`    |                          -                          |             -             |                              |
 
-**Furthermore, `zest::net::TcpConnection` provides two interfaces for users to store and read arbitrary data in this TCP connection:**
+***另外，`zest::net::TcpConnection` 提供了2个接口，来向TCP连接中存取任意类型的数据：***
 
 ```c++
 template <typename ValueType, typename... Args>
@@ -134,7 +143,7 @@ template <typename ValueType>
 ValueType* Get(const std::string &key) const;
 ```
 
-You can use them as follow:
+你可以这样使用：
 
 ```c++
 // conn is a zest::net::TcpConnection object.
@@ -144,8 +153,5 @@ conn.Put<Foo>("my_foo", 42, 3.14);   // create a Foo(42, 3.14) named "my_foo" an
 Foo* foo = conn.Get<Foo>("my_foo");  // get it by its name "my_foo"
 ```
 
-***This allows you to customize data to record the state of this TCP connection, enabling richer functionality.***
+***这使得你可以使用自定义的数据结构来记录每个TCP连接的状态，实现更丰富的功能。***
 
-
-
-That's all, have a good time!
