@@ -4,7 +4,8 @@
 header_base_files=(
     "zest/base/noncopyable.h"
     "zest/base/fix_buffer.h"
-    "zest/base/logging.h")
+    "zest/base/logging.h"
+)
 header_net_files=(
     "zest/net/tcp_server.h"
     "zest/net/tcp_client.h"
